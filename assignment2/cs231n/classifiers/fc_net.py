@@ -245,18 +245,20 @@ class FullyConnectedNet(object):
     # self.bn_params[1] to the forward pass for the second batch normalization #
     # layer, etc.                                                              #
     ############################################################################
+    mem = {}
+    mem['out0'] = X.reshape(X.shape[0], np.prod(X.shape[1:]))
+
     for i in xrange(self.num_layers):
-        if i == 0:
-            out, cache = affine_relu_forward(X, self.params['W'+str(i+1)], self.params['b'+str(i+1)])
-        elif i == (self.num_layers -1):
-            out, cache = affine_forward(self.params['out'+str(i)], self.params['W'+str(i+1)], self.params['b'+str(i+1)])
+        if i == (self.num_layers-1):
+            # output layer
+            out, cache = affine_forward(mem['out'+str(i)], self.params['W'+str(i+1)], self.params['b'+str(i+1)])
             # scores = self.params['out'+str(self.num_layers-1)]
             scores = out
         else:
-            out, cache = affine_relu_forward(self.params['out' + str(i)], self.params['W' + str(i+1)], self.params['b' + str(i+1)])
+            out, cache = affine_relu_forward(mem['out' + str(i)], self.params['W' + str(i+1)], self.params['b' + str(i+1)])
 
-        self.params['cache_h' + str(i + 1)] = cache
-        self.params['out' + str(i + 1)] = out
+        mem['cache_h' + str(i+1)] = cache
+        mem['out' + str(i+1)] = out
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
@@ -283,19 +285,20 @@ class FullyConnectedNet(object):
     reg_loss = 0
     for i in xrange(self.num_layers-1):
         reg_loss += 0.5*self.reg*np.sum(self.params['W'+str(i+1)]*self.params['W'+str(i+1)])
+    loss = reg_loss + data_loss
 
     # backprp
-    for i in xrange(self.num_layers, 0, -1):
+    for i in xrange(self.num_layers, 0, -1):    # 3,2,1
         dx, dw, db = 0, 0, 0
         if i == self.num_layers:
             # no relu layer at the last layer
-            dx, dw, db = affine_backward(dscores, self.params['cache_h'+str(i)])
-            self.params['dx'+str(i)] = dx
+            dx, dw, db = affine_backward(dscores, mem['cache_h'+str(i)])
+            mem['dx'+str(i)] = dx
             # self.params['dw'+str(i)] = dw
             # self.params['db'+str(i)] = db
         else:
-            dx, dw, db = affine_relu_backward(self.params['dx'+str(i+1)], self.params['cache_h'+str(i)])
-            self.params['dx' + str(i)] = dx
+            dx, dw, db = affine_relu_backward(mem['dx'+str(i+1)], mem['cache_h'+str(i)])
+            mem['dx' + str(i)] = dx
         # refresh
         grads['W'+str(i)] = dw + self.reg*self.params['W'+str(i)]
         grads['b'+str(i)] = db

@@ -59,7 +59,8 @@ def affine_backward(dout, cache):
 
   dw = np.dot(np.reshape(x,[np.shape(x)[0], np.prod(np.shape(x)[1:])]).T, dout) # (D, M)
 
-  db = np.sum(dout, axis=0, keepdims=True)
+  # db = np.sum(dout, axis=0, keepdims=True) !!! incorrect!!
+  db = np.sum(dout, axis=0)
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
