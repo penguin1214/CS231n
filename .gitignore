@@ -2,3 +2,5 @@
 */frameworkpython
 */collectSubmission.sh
 ./idea
+*/*.pyc
+*/.env/
