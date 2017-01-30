@@ -247,15 +247,31 @@ class FullyConnectedNet(object):
     ############################################################################
     mem = {}
     mem['out0'] = X.reshape(X.shape[0], np.prod(X.shape[1:]))
+    mem['drop_out0'] = X.reshape(X.shape[0], np.prod(X.shape[1:]))
 
+    # if self.use_dropout:
+    #     h_drop, cache_drop = dropout_forward(mem['out0'], self.dropout_param)
+    #     mem['h_drop0'], mem['cache_drop0'] = h_drop, cache_drop
+
+    # dropout is applied after every ReLu layer
     for i in xrange(self.num_layers):
         if i == (self.num_layers-1):
-            # output layer
-            out, cache = affine_forward(mem['out'+str(i)], self.params['W'+str(i+1)], self.params['b'+str(i+1)])
+            # output layer (doesn't use dropout)
+            if self.use_dropout:
+                # if used dropout, the previous layer of the output layer gives dropout value
+                out, cache = affine_forward(mem['drop_out'+str(i)], self.params['W'+str(i+1)], self.params['b'+str(i+1)])
+            else:
+                out, cache = affine_forward(mem['out' + str(i)], self.params['W' + str(i + 1)], self.params['b' + str(i + 1)])
             # scores = self.params['out'+str(self.num_layers-1)]
             scores = out
         else:
-            out, cache = affine_relu_forward(mem['out' + str(i)], self.params['W' + str(i+1)], self.params['b' + str(i+1)])
+            if self.use_dropout:
+                out, cache = affine_relu_forward(mem['drop_out'+str(i)], self.params['W' + str(i+1)], self.params['b' + str(i+1)])
+                drop_out, drop_cache = dropout_forward(out, self.dropout_param)
+                mem['drop_cache'+str(i+1)] = drop_cache
+                mem['drop_out'+str(i+1)] = drop_out
+            else:
+                out, cache = affine_relu_forward(mem['out' + str(i)], self.params['W' + str(i + 1)], self.params['b' + str(i + 1)])
 
         mem['cache_h' + str(i+1)] = cache
         mem['out' + str(i+1)] = out
@@ -292,12 +308,17 @@ class FullyConnectedNet(object):
         dx, dw, db = 0, 0, 0
         if i == self.num_layers:
             # no relu layer at the last layer
+            # i = 3
             dx, dw, db = affine_backward(dscores, mem['cache_h'+str(i)])
             mem['dx'+str(i)] = dx
-            # self.params['dw'+str(i)] = dw
-            # self.params['db'+str(i)] = db
         else:
-            dx, dw, db = affine_relu_backward(mem['dx'+str(i+1)], mem['cache_h'+str(i)])
+            # dropout backward first
+            if self.use_dropout:
+                cache_drop = mem['drop_cache'+str(i)]
+                dx = dropout_backward(mem['dx'+str(i+1)], cache_drop)
+                dx, dw, db = affine_relu_backward(dx, mem['cache_h'+str(i)])
+            else:
+                dx, dw, db = affine_relu_backward(mem['dx' + str(i + 1)], mem['cache_h' + str(i)])
             mem['dx' + str(i)] = dx
         # refresh
         grads['W'+str(i)] = dw + self.reg*self.params['W'+str(i)]
