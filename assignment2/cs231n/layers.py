@@ -498,7 +498,7 @@ def max_pool_forward_naive(x, pool_param):
               for ww in xrange(pool_w):
                   out[n, c, hh, ww] = np.max(x[n,c,(hh*stride):(hh*stride+HH),(ww*stride):(ww*stride+WW)])
                   window = x[n,c,(hh*stride):(hh*stride+HH),(ww*stride):(ww*stride+WW)]
-                  i = np.unravel_index(window.argmax(), window.shape)
+                  i = np.unravel_index(window.argmax(), window.shape) #magic!!
                   idx[n, c, hh, ww] = [n,c,hh*stride+i[0],ww*stride+i[1]]
 
   pool_param['idx'] = idx
