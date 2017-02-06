@@ -156,6 +156,12 @@ def rnn_backward(dh, cache):
 
   # backprop timestep by timestep
   for t in reversed(xrange(T)):
+    # WHY USE (dh[t]+dprev_h) HERE?????
+    # AND WHY dh IS NOT INITIALIZED WITH ZERO????
+    # THE REASON IS THE SAME AS Wh & Wx
+    # ht depends on ht-1, using the chain rule, we sum up all the derivative of previous hidden states.
+    # the error of ht is continuously propagated to the successive timesteps, so we need to count them in.
+    # dh[t] can be seen as the "local" derivative, dprev_h is the upstream derivative of all timesteps after.
     dx_t, dprev_h, dWx_t, dWh_t, db_t = rnn_step_backward(dh[t]+dprev_h, cache[t])
     dWx += dWx_t
     dWh += dWh_t
@@ -178,7 +184,7 @@ def word_embedding_forward(x, W):
   
   Inputs:
   - x: Integer array of shape (N, T) giving indices of words. Each element idx
-    of x muxt be in the range 0 <= idx < V.
+    of x must be in the range 0 <= idx < V.
   - W: Weight matrix of shape (V, D) giving word vectors for all words.
   
   Returns a tuple of:
@@ -191,7 +197,8 @@ def word_embedding_forward(x, W):
   #                                                                            #
   # HINT: This should be very simple.                                          #
   ##############################################################################
-  pass
+  out = W[x]
+  cache = x, W
   ##############################################################################
   #                               END OF YOUR CODE                             #
   ##############################################################################
@@ -219,7 +226,9 @@ def word_embedding_backward(dout, cache):
   #                                                                            #
   # HINT: Look up the function np.add.at                                       #
   ##############################################################################
-  pass
+  x, W = cache
+  dW = np.zeros_like(W)
+  np.add.at(dW, x, dout)
   ##############################################################################
   #                               END OF YOUR CODE                             #
   ##############################################################################
