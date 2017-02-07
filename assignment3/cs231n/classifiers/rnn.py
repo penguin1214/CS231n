@@ -24,6 +24,7 @@ class CaptioningRNN(object):
     Inputs:
     - word_to_idx: A dictionary giving the vocabulary. It contains V entries,
       and maps each string to a unique integer in the range [0, V).
+      {'<NULL>': 0, 'dog': 3, 'cat': 2}
     - input_dim: Dimension D of input image feature vectors.
     - wordvec_dim: Dimension W of word vectors.
     - hidden_dim: Dimension H for the hidden state of the RNN.
@@ -43,16 +44,19 @@ class CaptioningRNN(object):
     vocab_size = len(word_to_idx)
 
     self._null = word_to_idx['<NULL>']
-    self._start = word_to_idx.get('<START>', None)
+    self._start = word_to_idx.get('<START>', None)  # if no '<START>', return None
     self._end = word_to_idx.get('<END>', None)
     
     # Initialize word vectors
     self.params['W_embed'] = np.random.randn(vocab_size, wordvec_dim)
     self.params['W_embed'] /= 100
-    
+    # shape: (3,30)
+    # vocab_size: 3
+    # wordvec_dim: 30
+
     # Initialize CNN -> hidden state projection parameters
-    self.params['W_proj'] = np.random.randn(input_dim, hidden_dim)
-    self.params['W_proj'] /= np.sqrt(input_dim)
+    self.params['W_proj'] = np.random.randn(input_dim, hidden_dim)  # (D, H)
+    self.params['W_proj'] /= np.sqrt(input_dim) # ???
     self.params['b_proj'] = np.zeros(hidden_dim)
 
     # Initialize parameters for the RNN
@@ -96,8 +100,8 @@ class CaptioningRNN(object):
     # token, and the first element of captions_out will be the first word.
     captions_in = captions[:, :-1]
     captions_out = captions[:, 1:]
-    
-    # You'll need this 
+
+    # You'll need this
     mask = (captions_out != self._null)
 
     # Weight and bias for the affine transform from image features to initial
@@ -135,7 +139,36 @@ class CaptioningRNN(object):
     # defined above to store loss and gradients; grads[k] should give the      #
     # gradients for self.params[k].                                            #
     ############################################################################
-    pass
+    # - features: Input image features, of shape (N, D)
+    h0 = features.dot(W_proj) + b_proj
+    # WHT USE IMAGE FEATURES AS INITIAL HIDDEN STATE?
+
+    captions_in, cache_embed = word_embedding_forward(captions_in, W_embed)
+    # print captions_in.shape >>> (10, 12, 30)
+    h, cache_h = rnn_forward(captions_in, h0, Wx, Wh, b)
+
+    # compute scores
+    scores, cache_scores = temporal_affine_forward(h, W_vocab, b_vocab)
+
+    # compute loss, ignoring the points where the output word is <NULL> using the mask above.
+    loss, dscores = temporal_softmax_loss(scores, captions_out, mask)
+
+    # --- backprop ---
+    dh, dW_vocab, db_vocab = temporal_affine_backward(dscores, cache_scores)  # into affine layer
+    dx, dh0, dWx, dWh, db = rnn_backward(dh, cache_h) # into the whole forward pass
+    dW_embed = word_embedding_backward(dx, cache_embed)
+    dW_proj = features.T.dot(dh0)
+    db_proj = np.sum(dh0, axis=0)
+
+    # update grads
+    grads['W_proj'] = dW_proj
+    grads['b_proj'] = db_proj
+    grads['W_embed'] = dW_embed
+    grads['Wx'] = dWx
+    grads['Wh'] = dWh
+    grads['b'] = db
+    grads['W_vocab'] = dW_vocab
+    grads['b_vocab'] = db_vocab
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
